@@ -1,0 +1,24 @@
+
+%% Redefine assertEqual and assertMatch macros provided by otp eunit
+
+%% usage:
+?assertEqual(ExpectedValue, RealValue).
+?assertMatch(ExpectedPattern, RealValue).
+
+%% This two macros both test the assertion and return (also print) the 
+%% detailed mismatch information to make debug easier
+
+%% For example, if we have a record defined as below:
+-record(rec, [field_1, field_2]).
+
+%% When assertMatch is called as:
+?assertMatch(#rec{field_1 = something}, #rec{field_1 = somethnig,
+                                             field_2 = ignored}).
+
+%% The output to standard io would be:
+Match failed in module <module name> at line <line number>:
+  details: #red{...}
+       field_1: EXPECT = something
+                   GOT = somethnig
+       field_2: ignored
+
