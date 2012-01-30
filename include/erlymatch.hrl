@@ -21,10 +21,10 @@
                 Pattern ->
                     ok;
                 __Value ->
-                    %% Pattern is parsed into Variable by erlymatch_parse
+                    %% ??Pattern is parsed into Variable by erlymatch_parse
                     __Parsed = {'$ERLYMATCH_PARSE_ME', ??Pattern},
                     __Fixed = erlymatch_ignore:fix(__Parsed, __Value),
-                    %% let ?equal report the match details
+                    %% let ?erlyequal report the mismatch details
                     ?erlyequal(__Fixed, __Value)
                 end
             end
