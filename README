@@ -17,7 +17,7 @@
 
 %% The output to standard io would be:
 Match failed in module <module name> at line <line number>:
-  details: #red{...}
+  details: #rec{...}
        field_1: EXPECT = something
                    GOT = somethnig
        field_2: ignored
