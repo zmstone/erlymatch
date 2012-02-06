@@ -1,6 +1,9 @@
 
 %% Redefine assertEqual and assertMatch macros provided by otp eunit
 
+%% include:
+-include_lib("erlymatch/include/erlymatch.hrl").
+
 %% usage:
 ?assertEqual(ExpectedValue, RealValue).
 ?assertMatch(ExpectedPattern, RealValue).
