@@ -56,12 +56,14 @@ t_match_basic(Conf) when is_list(Conf) ->
     ?assertMatch(_, b),
     [{a, b}] = mismatch_details(catch ?assertMatch(a, b)),
 
-    ?assertMatch(_, "stirng"),
+    ok = ?assertMatch(_, "stirng"),
     [{"a", "b"}] = mismatch_details(catch ?assertMatch("a", "b")),
 
-    ?assertMatch(_, {a, b}),
+    ok = ?assertMatch(_, {a, b}),
     [{a, b}, {b, a}] = mismatch_details(catch ?assertMatch({a, b}, {b, a})),
 
+    ok = ?assertMatch('_', whatever),
+    [{'_x', whatever}] = mismatch_details(catch ?assertMatch('_x', whatever)),
     ok.
 
 %%% ----------------------------------------------------------------------------
