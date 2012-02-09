@@ -20,9 +20,6 @@
                 case (Value) of
                 Pattern ->
                     ok;
-                _ when (??Pattern == "'_'") ->
-                    %% save some parse work
-                    ok;
                 __Value ->
                     %% ??Pattern is parsed into Variable by erlymatch_parse
                     __Parsed = {'$ERLYMATCH_PARSE_ME', ??Pattern},
