@@ -1,7 +1,10 @@
-all: compile ct
+all: compile ct eunit
 
 compile:
-	./rebar compile
+	rebar3 compile
 
 ct:
-	./rebar ct
+	rebar3 ct
+
+eunit:
+	rebar3 eunit
