@@ -8,6 +8,7 @@
     , t_match_basic/1
     , t_match_tuple/1
     , t_match_list/1
+    , t_match_map/1
     , t_match_record/1
     , t_mismatch_details/1
     ]).
@@ -26,6 +27,7 @@ all() ->
     , t_match_basic
     , t_match_tuple
     , t_match_list
+    , t_match_map
     , t_match_record
     , t_mismatch_details
     ].
@@ -92,18 +94,23 @@ t_match_list(Conf) when is_list(Conf) ->
         mismatch_details(catch ?assertMatch([a, b, c], [b, c,d ])),
     ok.
 
+t_match_map(Conf) when is_list(Conf) ->
+    ok = ?assertMatch(#{}, #{}),
+    [{c, b}] = mismatch_details(catch ?assertEqual(#{a => c}, #{a => b})),
+    [{c, b}] = mismatch_details(catch ?assertEqual(#{a => #{key => c}}, #{a => #{ key => b}})).
+
 %%% ----------------------------------------------------------------------------
 %%% test match macro, records
 %%% ----------------------------------------------------------------------------
 t_match_record(Conf) when is_list(Conf) ->
     ?assertMatch(#a{}, #a{b = hasvalue}),
-    ?assertMatch(#a{_='_'}, #a{b = hasvalue}),
-    ?assertMatch(#a{_='_',_='_',_='_',_='_',_='_'}, #a{b = hasvalue}),
-    [{hsavalue, hasvalue}] = 
+    ?assertMatch(#a{b='_'}, #a{b = hasvalue}),
+    ?assertMatch(#a{b='_',c='_',d='_',e='_',f='_'}, #a{b = hasvalue}),
+    [{hsavalue, hasvalue}] =
         mismatch_details(catch ?assertMatch(#a{b = hsavalue}, #a{b = hasvalue})),
     A = #a{b = b, c = c, d = d, e = e, f = f},
     B = #b{c = c, d = d, e = e, f = f},
-    [{{a, b, c, d, e, f}, {b, c, d, e, f}}] = 
+    [{{a, b, c, d, e, f}, {b, c, d, e, f}}] =
         mismatch_details(catch ?assertMatch(A, B)),
 
     ?assertMatch(#a{b = _}, #a{b = hasvalue}),
@@ -120,7 +127,7 @@ t_mismatch_details(Conf) when is_list(Conf) ->
     X = something,
     Line = ?LINE, Mismatch = (catch ?assertMatch(X, somethingelse)),
     ExpectedMismatch = { mismatch
-                       , { ?MODULE 
+                       , { ?MODULE
                          , Line
                          , { details
                            , value

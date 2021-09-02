@@ -46,21 +46,28 @@ print({Module, Line, Format}, Options) ->
 %% -----------------------------------------------------------------------------
 %% format match status of each element
 %% -----------------------------------------------------------------------------
-format_match(Mod, Tag, A, B)
-  when is_list(A),
-       is_list(B) ->
+format_match(Mod, Tag, A, B) when is_list(A), is_list(B) ->
     format_list_match(Mod, Tag, A, B);
-format_match(Mod, Tag, A, B)
-  when is_tuple(A),
-       is_tuple(B) ->
+format_match(Mod, Tag, A, B) when is_tuple(A), is_tuple(B) ->
     format_tuple_match(Mod, Tag, A, B);
+format_match(Mod, Tag, A, B) when is_map(A), is_map(B) ->
+    AKeys = lists:sort(maps:keys(A)),
+    BKeys = lists:sort(maps:keys(B)),
+    case AKeys =/= BKeys of
+        true ->
+            {Tag, map_keys, mismatch, {AKeys, BKeys}};
+        false ->
+            Sub = format_map_match(Mod, AKeys, A, B),
+            {Tag, map, match_result(A, B), Sub}
+    end;
 format_match(_Mod, Tag, A, B) ->
-    format_atomic_match(Tag, A, B).
+    format_prim_match(Tag, A, B).
+
 
 %% -----------------------------------------------------------------------------
 %% format atomic match
 %% -----------------------------------------------------------------------------
-format_atomic_match(Tag, A, B) ->
+format_prim_match(Tag, A, B) ->
     case A == B of
         true ->
             {Tag, value, match, A};
@@ -80,7 +87,7 @@ match_result(_, _) -> mismatch.
 format_list_match(Mod, Tag, A, B) ->
     case is_printable(A) andalso is_printable(B) of
         true ->
-            format_atomic_match(Tag, A, B);
+            format_prim_match(Tag, A, B);
         false ->
             Tags = lists:seq(1, length(A)),
             Sub = format_list_match_loop(Mod, Tags, A, B),
@@ -93,6 +100,9 @@ format_list_match_loop(_Mod, _Tags, A, B) when A == [] orelse B == [] ->
     [{'LIST TAIL', value, mismatch, {A, B}}];
 format_list_match_loop(Mod, [Tag | Tags], [H1 | T1], [H2 | T2]) ->
     [format_match(Mod, Tag, H1, H2)| format_list_match_loop(Mod, Tags, T1, T2)].
+
+format_map_match(Mod, Keys, A, B) ->
+    [format_match(Mod, Key, maps:get(Key, A), maps:get(Key, B)) || Key <- Keys].
 
 %% -----------------------------------------------------------------------------
 %% format tuple match
@@ -117,27 +127,30 @@ format_tuple_match(Mod, Tag, A, B) ->
 %% -----------------------------------------------------------------------------
 sub_format(value, _Var) -> [];
 sub_format(record, [_RecordName | Sub]) -> Sub;
-sub_format(Type, Sub) when Type == list orelse Type == tuple -> Sub.
+sub_format(Type, Sub) when Type =:= list;
+                           Type =:= tuple;
+                           Type =:= map ->
+    Sub.
 
 %% -----------------------------------------------------------------------------
-%% get the indention margin width
+%% get the indention padding width
 %% -----------------------------------------------------------------------------
-get_print_margin(Format) ->
-    get_print_margin(Format, 0, 0).
+padding_width(Format) ->
+    padding_width(Format, 0, 0).
 
-get_print_margin([], _Depth, Margin) ->
-    Margin;
-get_print_margin([Format | Rest], Depth, Margin) ->
-    Result = get_print_margin(Format, Depth, Margin),
-    get_print_margin(Rest, Depth, Result);
-get_print_margin({Tag, Type, _MatchResult, Var}, Depth, Margin) ->
+padding_width([], _Depth, Width) ->
+    Width;
+padding_width([Format | Rest], Depth, Width) ->
+    Result = padding_width(Format, Depth, Width),
+    padding_width(Rest, Depth, Result);
+padding_width({Tag, Type, _MatchResult, Var}, Depth, Width) ->
     Result = case length(term2string(Tag)) - Depth * ?ind_width of
-        TmpMargin when TmpMargin > 0 ->
-            erlang:max(TmpMargin, Margin);
+        TmpWidth when TmpWidth > 0 ->
+            erlang:max(TmpWidth, Width);
         _ ->
-            Margin
+            Width
     end,
-    get_print_margin(sub_format(Type, Var), Depth+1, Result).
+    padding_width(sub_format(Type, Var), Depth+1, Result).
 
 %% -----------------------------------------------------------------------------
 %% print match format
@@ -147,16 +160,16 @@ print_match_format(_Format, []) ->
 print_match_format(Format, [raw | _]) ->
     io:format("~p~n", [Format]);
 print_match_format(Format, Options) ->
-    PrintMargin = get_print_margin(Format) + 2,
-    print_match_format(Format, hd(Options), PrintMargin, 0).
+    Width = padding_width(Format) + 2,
+    print_match_format(Format, hd(Options), Width, 0).
 
-print_match_format([], _Option, _Margin, _Depth) ->
+print_match_format([], _Option, _Width, _Depth) ->
     ok;
-print_match_format([Format | Rest], Option, Margin, Depth) ->
-    print_match_format(Format, Option, Margin, Depth),
-    print_match_format(Rest, Option, Margin, Depth);
-print_match_format({Tag, Type, MatchResult, Var}, Option, Margin, Depth) ->
-    TagStr = make_tag_str(Margin + Depth * ?ind_width, Tag),
+print_match_format([Format | Rest], Option, Width, Depth) ->
+    print_match_format(Format, Option, Width, Depth),
+    print_match_format(Rest, Option, Width, Depth);
+print_match_format({Tag, Type, MatchResult, Var}, Option, Width, Depth) ->
+    TagStr = make_tag_str(Width + Depth * ?ind_width, Tag),
     VarStr = case Type of
         value when MatchResult == match ->
             term2string(Var);
@@ -167,6 +180,8 @@ print_match_format({Tag, Type, MatchResult, Var}, Option, Margin, Depth) ->
             "   GOT = " ++ term2string(B);
         list ->
             "[...]";
+        map ->
+            "#{...}";
         tuple ->
             "{...}";
         record ->
@@ -178,7 +193,7 @@ print_match_format({Tag, Type, MatchResult, Var}, Option, Margin, Depth) ->
         false ->
             do_nothing
     end,
-    print_match_format(sub_format(Type, Var), Option, Margin, Depth+1).
+    print_match_format(sub_format(Type, Var), Option, Width, Depth+1).
 
 %% -----------------------------------------------------------------------------
 %% Width = 4, Tag = "abc" -> " abc"
@@ -186,13 +201,13 @@ print_match_format({Tag, Type, MatchResult, Var}, Option, Margin, Depth) ->
 make_tag_str(Width, Tag) when not is_list(Tag) ->
     make_tag_str(Width, term2string(Tag));
 make_tag_str(Width, TagStr) ->
-    lists:duplicate(Width - length(TagStr), $\s) ++ TagStr. 
+    lists:duplicate(Width - length(TagStr), $\s) ++ TagStr.
 
 %% -----------------------------------------------------------------------------
-%% check if a string (integer list) is printabel
+%% check if list is printabel
 %% -----------------------------------------------------------------------------
 is_printable(L) when is_list(L) ->
-    lists:all(fun(C) -> C > 8 andalso C < 127 end, L).
+    io_lib:printable_unicode_list(L).
 
 %% -----------------------------------------------------------------------------
 %% function: term2string(term()) -> string()
